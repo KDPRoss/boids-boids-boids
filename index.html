@@ -19,15 +19,26 @@
       
       const randBetw = (min, max) => Math.random() * (max - min) + min;
       const randSign = () => Math.random() < 0.5 ? 1 : -1;
-      const scaleFactor = Math.floor((maxX - minX) / 200);
-      const moveTowardsCentreFactor = 1 / 100;
-      const numObjs = 25;
+      const showNeighbours = false;
+      const showVectors = true;
+      const scaleFactor = Math.floor((maxX - minX) / 400);
+      const moveTowardsCentreFactor = 1 / 20; // Relative strengths of force pressures.
+      const moveAwayFromTooCloseFactor = 1 / 20;
+      const matchVelocityFactor = 1;
+      const avoidWallsFactor = 15;
+      const globalFudge = 1 / 10; // How much deltas can be applied by the force pressures.
+      const tooClose = 25;
+      const numObjs = 300;
+      const objSize = 3;
+      const sightRadius = 150;
+      const numNeighbours = 20;
+      const minDelta = scaleFactor / 2;
       let objs =
         new Array(numObjs).fill(undefined).map(() => ({
           x: randBetw(minX, maxX),
           y: randBetw(minY, maxY),
-          dx: randBetw(0.1, scaleFactor) * randSign(),
-          dy: randBetw(0.1, scaleFactor) * randSign(),
+          dx: randBetw(minDelta, scaleFactor) * randSign(),
+          dy: randBetw(minDelta, scaleFactor) * randSign(),
         }));
 
       const black = '#000000';
@@ -42,9 +53,6 @@
 
       const norm = (x, y) => Math.sqrt(x ** 2 + y ** 2);
 
-      const objSize = 3;
-      const sightRadius = 150;
-      const numNeighbours = 10;
       const renderObj = ({
         x,
         y,
@@ -54,10 +62,16 @@
       }) => {
         ctx.fillRect(x, y, objSize, objSize);
 
-        ctx.strokeStyle = black;
-        nearNeighbours.forEach((n) => {
-          line(x, y, n.x, n.y);
-        });
+        if (showNeighbours) {
+          ctx.strokeStyle = black;
+          nearNeighbours.forEach((n) => {
+            line(x, y, n.x, n.y);
+          });
+        }
+        if (showVectors) {
+          ctx.strokeStyle = red;
+          line(x, y, x + dx * 10, y + dy * 10);
+        }
       }
 
       const bound = (val, min, max) => {
@@ -78,11 +92,13 @@
 
             const byDist =
               objs
-                .map(({ x, y }) => {
+                .map(({ x, y, dx, dy }) => {
                   const dist = norm(xNew - x, yNew - y);
                   return {
                     x,
                     y,
+                    dx,
+                    dy,
                     dist,
                   };
                 })
@@ -98,9 +114,15 @@
             let dx = obj.dx;
             let dy = obj.dy;
 
+            // Delta rules from:
+            // http://www.vergenet.net/~conrad/boids/pseudocode.html
             if (n > 0) {
               let xPcJ = 0;
               let yPcJ = 0;
+              let xC = 0;
+              let yC = 0;
+              let xPvJ = 0;
+              let yPvJ = 0;
 
               for (let i = 0; i < n; i ++) {
                 const neighbour = byDist[i];
@@ -110,13 +132,27 @@
                 // Approach 'centre of mass' of neighbours.
                 xPcJ += neighbour.x;
                 yPcJ += neighbour.y;
+
+                // Avoid getting 'too close'.
+                if (neighbour.dist < tooClose) {
+                  xC -= neighbour.x - xNew;
+                  yC -= neighbour.y - yNew;
+                }
+
+                // Try to match velocity.
+                xPvJ += neighbour.dx;
+                yPvJ += neighbour.dy;
               }
 
               xPcJ = (xPcJ / n - xNew) * moveTowardsCentreFactor;
               yPcJ = (yPcJ / n - yNew) * moveTowardsCentreFactor;
+              xC = xC * moveAwayFromTooCloseFactor;
+              yC = yC * moveAwayFromTooCloseFactor;
+              xPvJ = (xPvJ / n - dx) * matchVelocityFactor;
+              yPcJ = (yPvJ / n - dy) * matchVelocityFactor;
 
-              const dxTemp = obj.dx + xPcJ;
-              const dyTemp = obj.dy + yPcJ;
+              const dxTemp = obj.dx + globalFudge * (xPcJ + xC + xPvJ);
+              const dyTemp = obj.dy + globalFudge * (yPcJ + yC + xPvJ);
               const normOld = norm(obj.dx, obj.dy);
               const normNew = norm(dxTemp, dyTemp);
 
