@@ -19,8 +19,9 @@
       
       const randBetw = (min, max) => Math.random() * (max - min) + min;
       const randSign = () => Math.random() < 0.5 ? 1 : -1;
-      const showNeighbours = false;
-      const showVectors = true;
+      const showNeighbours = true;
+      const showTooClose = true;
+      const showVectors = false;
       const scaleFactor = Math.floor((maxX - minX) / 400);
       const moveTowardsCentreFactor = 1 / 20; // Relative strengths of force pressures.
       const moveAwayFromTooCloseFactor = 1 / 20;
@@ -31,7 +32,7 @@
       const numObjs = 300;
       const objSize = 3;
       const sightRadius = 150;
-      const numNeighbours = 20;
+      const numNeighbours = 10;
       const minDelta = scaleFactor / 2;
       let objs =
         new Array(numObjs).fill(undefined).map(() => ({
@@ -59,12 +60,21 @@
         dx,
         dy,
         nearNeighbours,
+        tooCloseNeighbours,
       }) => {
         ctx.fillRect(x - objSize / 2, y - objSize / 2, objSize, objSize);
 
         if (showNeighbours) {
           ctx.strokeStyle = black;
           nearNeighbours.forEach((n) => {
+            line(x, y, n.x, n.y);
+          });
+
+          if (showTooClose) {
+            ctx.strokeStyle = red;
+          }
+
+          tooCloseNeighbours.forEach((n) => {
             line(x, y, n.x, n.y);
           });
         }
@@ -85,13 +95,40 @@
       }
 
       const update = () => {
+        const chunks = {};
+        objs.forEach((obj) => {
+          const { x, y } = obj;
+
+          const xD = Math.floor(x / sightRadius);
+          const yD = Math.floor(x / sightRadius);
+
+          const xs = chunks[[xD, yD]] || [];
+          xs.push(obj);
+          chunks[[xD, yD]] = xs;
+        });
+
+        const getNeighbours = ({x, y}) => {
+          const xD = Math.floor(x / sightRadius);
+          const yD = Math.floor(x / sightRadius);
+
+          const res = [];
+
+          for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j ++) {
+              res.push(...(chunks[[xD + i, yD + j]] || []));
+            }
+          }
+
+          return res;
+        }
+
         objs =
           objs.map((obj) => {
             const xNew = bound(obj.x + obj.dx, minX, maxX);
             const yNew = bound(obj.y + obj.dy, minY, maxY);
 
             const byDist =
-              objs
+              getNeighbours(obj)
                 .map(({ x, y, dx, dy }) => {
                   const dist = norm(xNew - x, yNew - y);
                   return {
@@ -110,6 +147,7 @@
 
             const n = Math.min(numNeighbours, byDist.length);
             const nearNeighbours = [];
+            const tooCloseNeighbours = [];
 
             let dx = obj.dx;
             let dy = obj.dy;
@@ -127,7 +165,11 @@
               for (let i = 0; i < n; i ++) {
                 const neighbour = byDist[i];
 
-                nearNeighbours.push(neighbour);
+                if (neighbour.dist < tooClose) {
+                  tooCloseNeighbours.push(neighbour);
+                } else {
+                  nearNeighbours.push(neighbour);
+                }
 
                 // Approach 'centre of mass' of neighbours.
                 xPcJ += neighbour.x;
@@ -147,15 +189,27 @@
               // Avoid walls.
               if (obj.x < tooClose) {
                 xC += tooClose * avoidWallsFactor;
+                if (showTooClose) {
+                  tooCloseNeighbours.push({ x: 0, y: obj.y });
+                }
               }
               if (obj.x > maxX - tooClose) {
                 xC -= tooClose * avoidWallsFactor;
+                if (showTooClose) {
+                  tooCloseNeighbours.push({ x: maxX, y: obj.y });
+                }
               }
               if (obj.y < tooClose) {
                 yC += tooClose * avoidWallsFactor;
+                if (showTooClose) {
+                  tooCloseNeighbours.push({ x: obj.x, y: 0 });
+                }
               }
               if (obj.y > maxY - tooClose) {
                 yC -= tooClose * avoidWallsFactor;
+                if (showTooClose) {
+                  tooCloseNeighbours.push({ x: obj.x, y: maxY });
+                }
               }
 
               xPcJ = (xPcJ / n - xNew) * moveTowardsCentreFactor;
@@ -177,6 +231,7 @@
             return {
               ...obj,
               nearNeighbours,
+              tooCloseNeighbours,
               dx,
               dy,
               x: bound(obj.x + obj.dx, minX, maxX),
