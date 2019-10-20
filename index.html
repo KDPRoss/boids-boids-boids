@@ -17,20 +17,10 @@
       const canvas = document.getElementById('graphicsCanvas');
       const ctx = canvas.getContext('2d');
       
-      const objSize = 3;
-      const renderObj = ({
-        x,
-        y,
-        dx,
-        dy,
-      }) => {
-        ctx.fillRect(x, y, objSize, objSize);
-      }
-
       const randBetw = (min, max) => Math.random() * (max - min) + min;
       const randSign = () => Math.random() < 0.5 ? 1 : -1;
       const scaleFactor = Math.floor((maxX - minX) / 200);
-      const numObjs = 300;
+      const numObjs = 250;
       const objs =
         new Array(numObjs).fill(undefined).map(() => ({
           x: randBetw(minX, maxX),
@@ -38,6 +28,40 @@
           dx: randBetw(0.1, scaleFactor) * randSign(),
           dy: randBetw(0.1, scaleFactor) * randSign(),
         }));
+
+      const line = (x1, y1, x2, y2) => {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      };
+
+      const objSize = 3;
+      const numNeighbours = 10;
+      const renderObj = ({
+        x,
+        y,
+        dx,
+        dy,
+      }) => {
+        ctx.fillRect(x, y, objSize, objSize);
+        const byDist =
+          objs
+            .map(({ x: xP, y: yP }) => {
+              const dist = Math.sqrt((x - xP) ** 2 + (y - yP) ** 2);
+              return {
+                xP,
+                yP,
+                dist,
+              };
+            })
+            .sort(({ dist: distA }, { dist: distB }) => distA - distB);
+
+        for (let i = 1; i <= 5; i++) {
+          const { xP, yP } = byDist[i];
+          line(x, y, xP, yP);
+        }
+      }
 
       const bound = (val, min, max) => {
         if (val < min) {
