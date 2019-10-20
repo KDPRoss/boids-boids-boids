@@ -39,6 +39,8 @@
         ctx.stroke();
       };
 
+      const norm = (x, y) => Math.sqrt(x ** 2 + y ** 2);
+
       const objSize = 3;
       const sightRadius = 150;
       const numNeighbours = 10;
@@ -52,7 +54,7 @@
         const byDist =
           objs
             .map(({ x: xP, y: yP }) => {
-              const dist = Math.sqrt((x - xP) ** 2 + (y - yP) ** 2);
+              const dist = norm(x - xP, y - yP);
               return {
                 xP,
                 yP,
@@ -77,7 +79,8 @@
         }
 
         ctx.strokeStyle = red;
-        line(x, y, x + sumX / numNeighbours, y + sumY / numNeighbours);
+        const mag = 50 / norm(sumX, sumY);
+        line(x, y, x + sumX * mag, y + sumY * mag);
       }
 
       const bound = (val, min, max) => {
