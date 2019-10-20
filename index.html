@@ -60,7 +60,7 @@
         dy,
         nearNeighbours,
       }) => {
-        ctx.fillRect(x, y, objSize, objSize);
+        ctx.fillRect(x - objSize / 2, y - objSize / 2, objSize, objSize);
 
         if (showNeighbours) {
           ctx.strokeStyle = black;
