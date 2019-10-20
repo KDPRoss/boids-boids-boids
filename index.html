@@ -19,15 +19,18 @@
       
       const randBetw = (min, max) => Math.random() * (max - min) + min;
       const randSign = () => Math.random() < 0.5 ? 1 : -1;
-      const showNeighbours = true;
-      const showTooClose = true;
-      const showVectors = false;
+      const showNeighbours = false;
+      const showTooClose = false;
+      const showVectors = true;
+      const showHist = true;
+      const histLength = 15;
+      const histRes = 4;
       const scaleFactor = Math.floor((maxX - minX) / 400);
       const moveTowardsCentreFactor = 1 / 20; // Relative strengths of force pressures.
       const moveAwayFromTooCloseFactor = 1 / 20;
       const matchVelocityFactor = 1;
       const avoidWallsFactor = 15;
-      const globalFudge = 0 / 10; // How much deltas can be applied by the force pressures.
+      const globalFudge = 1 / 10; // How much deltas can be applied by the force pressures.
       const tooClose = 25;
       const numObjs = 300;
       const objSize = 3;
@@ -40,6 +43,8 @@
           y: randBetw(minY, maxY),
           dx: randBetw(minDelta, scaleFactor) * randSign(),
           dy: randBetw(minDelta, scaleFactor) * randSign(),
+          hist: [],
+          histCount: 0,
         }));
 
       const black = '#000000';
@@ -59,10 +64,21 @@
         y,
         dx,
         dy,
+        hist,
         nearNeighbours,
         tooCloseNeighbours,
       }) => {
         ctx.fillRect(x - objSize / 2, y - objSize / 2, objSize, objSize);
+
+        if (showHist && hist.length >= 2) {
+          ctx.strokeStyle = black;
+
+          for (let i = 0; i < hist.length - 1; i ++) {
+            const { x: x1, y: y1 } = hist[i];
+            const { x: x2, y: y2 } = hist[i + 1];
+            line(x1, y1, x2, y2);
+          }
+        }
 
         if (showNeighbours) {
           ctx.strokeStyle = black;
@@ -228,12 +244,21 @@
               dy = dyTemp / normNew * normOld;
             }
 
+            let histCount = obj.histCount + 1;
+
+            let hist = obj.hist;
+            if (histCount >= histRes) {
+              hist = [{ x: xNew, y: yNew }, ...obj.hist.slice(0, histLength - 1)];
+              histCount = 0;
+            }
+
             return {
-              ...obj,
               nearNeighbours,
               tooCloseNeighbours,
               dx,
               dy,
+              hist,
+              histCount,
               x: bound(obj.x + obj.dx, minX, maxX),
               y: bound(obj.y + obj.dy, minY, maxY),
             };
