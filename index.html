@@ -26,7 +26,7 @@
       const moveAwayFromTooCloseFactor = 1 / 20;
       const matchVelocityFactor = 1;
       const avoidWallsFactor = 15;
-      const globalFudge = 1 / 10; // How much deltas can be applied by the force pressures.
+      const globalFudge = 0 / 10; // How much deltas can be applied by the force pressures.
       const tooClose = 25;
       const numObjs = 300;
       const objSize = 3;
@@ -142,6 +142,20 @@
                 // Try to match velocity.
                 xPvJ += neighbour.dx;
                 yPvJ += neighbour.dy;
+              }
+
+              // Avoid walls.
+              if (obj.x < tooClose) {
+                xC += tooClose * avoidWallsFactor;
+              }
+              if (obj.x > maxX - tooClose) {
+                xC -= tooClose * avoidWallsFactor;
+              }
+              if (obj.y < tooClose) {
+                yC += tooClose * avoidWallsFactor;
+              }
+              if (obj.y > maxY - tooClose) {
+                yC -= tooClose * avoidWallsFactor;
               }
 
               xPcJ = (xPcJ / n - xNew) * moveTowardsCentreFactor;
