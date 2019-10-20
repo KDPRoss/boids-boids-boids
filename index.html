@@ -21,7 +21,7 @@
       const randSign = () => Math.random() < 0.5 ? 1 : -1;
       const scaleFactor = Math.floor((maxX - minX) / 200);
       const numObjs = 25;
-      const objs =
+      let objs =
         new Array(numObjs).fill(undefined).map(() => ({
           x: randBetw(minX, maxX),
           y: randBetw(minY, maxY),
@@ -49,38 +49,14 @@
         y,
         dx,
         dy,
+        nearNeighbours,
       }) => {
         ctx.fillRect(x, y, objSize, objSize);
-        const byDist =
-          objs
-            .map(({ x: xP, y: yP }) => {
-              const dist = norm(x - xP, y - yP);
-              return {
-                xP,
-                yP,
-                dist,
-              };
-            })
-            .sort(({ dist: distA }, { dist: distB }) => distA - distB);
-
-        let sumX = 0;
-        let sumY = 0;
 
         ctx.strokeStyle = black;
-        for (let i = 1; i <= 5; i++) {
-          const { xP, yP, dist } = byDist[i];
-
-          if (dist <= sightRadius) {
-            line(x, y, xP, yP);
-
-            sumX += (xP - x);
-            sumY += (yP - y);
-          }
-        }
-
-        ctx.strokeStyle = red;
-        const mag = 50 / norm(sumX, sumY);
-        line(x, y, x + sumX * mag, y + sumY * mag);
+        nearNeighbours.forEach((n) => {
+          line(x, y, n.x, n.y);
+        });
       }
 
       const bound = (val, min, max) => {
@@ -94,9 +70,40 @@
       }
 
       const update = () => {
-        objs.forEach((obj) => {
-          obj.x = bound(obj.x + obj.dx, minX, maxX);
-          obj.y = bound(obj.y + obj.dy, minY, maxY);
+        objs =
+          objs.map((obj) => {
+            const xNew = bound(obj.x + obj.dx, minX, maxX);
+            const yNew = bound(obj.y + obj.dy, minY, maxY);
+
+            const byDist =
+              objs
+                .map(({ x, y }) => {
+                  const dist = norm(xNew - x, yNew - y);
+                  return {
+                    x,
+                    y,
+                    dist,
+                  };
+                })
+                .filter(({ dist }) => dist <= sightRadius)
+                .sort(({ dist: distA }, { dist: distB }) => distA - distB);
+
+            // Remove self.
+            byDist.shift();
+
+            const n = Math.min(numNeighbours, byDist.length);
+            const nearNeighbours = [];
+
+            for (let i = 0; i < n; i ++) {
+              nearNeighbours.push(byDist[i]);
+            }
+
+            return {
+              ...obj,
+              nearNeighbours,
+              x: bound(obj.x + obj.dx, minX, maxX),
+              y: bound(obj.y + obj.dy, minY, maxY),
+            };
         });
       };
 
